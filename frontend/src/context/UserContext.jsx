@@ -4,7 +4,7 @@ export const UserDataContext = createContext();
 
 const UserContext = ({ children }) => {
 
-    const ServerUrl = "http://localhost:8000";
+    const ServerUrl = "https://backend-ozrx.onrender.com";
     const [userData, setUserData] = useState(null);
      const [frontendImage, setFrontendImage] = useState(null);
         const [backendImage, setBackendImage] = useState(null);
