@@ -24,10 +24,19 @@ const UserContext = ({ children }) => {
 
     const getGeminiResponse = async ( command ) => {
       try {
-        const result = await axios.post(`${ServerUrl}/api/user/asktoassistant`, { command}, { withCredentials: true });
+        const result = await axios.post(
+          `${ServerUrl}/api/user/asktoassistant`,
+          { command },
+          { withCredentials: true, timeout: 20000 }
+        );
         return result.data;
       } catch (error) {
         console.log(error);
+        return {
+          type: "general",
+          userInput: command,
+          response: error.response?.data?.response || "I could not process that right now. Please try again."
+        };
       }
     }
 

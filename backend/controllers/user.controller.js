@@ -4,6 +4,108 @@ import geminiResponse from "../gemini.js";
 import User from "../models/user.model.js";
 import moment from 'moment';
 
+const fallbackAssistantResponse = (command = "") => {
+    const text = command.trim();
+    const lower = text.toLowerCase();
+
+    if (!text) {
+        return {
+            type: "general",
+            userInput: "",
+            response: "Please say something so I can help."
+        };
+    }
+
+    if (lower.includes("time")) {
+        return { type: "get_time", userInput: text };
+    }
+
+    if (lower.includes("date")) {
+        return { type: "get_date", userInput: text };
+    }
+
+    if (lower.includes("day")) {
+        return { type: "get_day", userInput: text };
+    }
+
+    if (lower.includes("month")) {
+        return { type: "get_month", userInput: text };
+    }
+
+    if (lower.includes("open calculator") || lower === "calculator") {
+        return {
+            type: "calculator_open",
+            userInput: text,
+            response: "Opening calculator."
+        };
+    }
+
+    if (lower.includes("instagram")) {
+        return {
+            type: "instagram_open",
+            userInput: text,
+            response: "Opening Instagram."
+        };
+    }
+
+    if (lower.includes("facebook")) {
+        return {
+            type: "facebook_open",
+            userInput: text,
+            response: "Opening Facebook."
+        };
+    }
+
+    if (lower.startsWith("play ") || lower.includes("play on youtube")) {
+        const cleaned = text.replace(/^play\s+/i, "").replace(/\s+on youtube$/i, "").trim();
+        return {
+            type: "youtube_play",
+            userInput: cleaned || text,
+            response: "Playing it on YouTube."
+        };
+    }
+
+    if (lower.includes("youtube")) {
+        const cleaned = text
+            .replace(/search/i, "")
+            .replace(/on youtube/i, "")
+            .replace(/youtube/i, "")
+            .trim();
+        return {
+            type: "youtube_search",
+            userInput: cleaned || text,
+            response: "Searching on YouTube."
+        };
+    }
+
+    if (lower.includes("google") || lower.startsWith("search ")) {
+        const cleaned = text
+            .replace(/search/i, "")
+            .replace(/on google/i, "")
+            .replace(/google/i, "")
+            .trim();
+        return {
+            type: "google_search",
+            userInput: cleaned || text,
+            response: "Searching on Google."
+        };
+    }
+
+    if (lower.includes("weather")) {
+        return {
+            type: "weather-show",
+            userInput: text,
+            response: "Please check your weather app. Gemini quota is currently exhausted."
+        };
+    }
+
+    return {
+        type: "general",
+        userInput: text,
+        response: "Gemini quota is exhausted right now. I can still help with time, date, day, month, Google, YouTube, Instagram, Facebook, and calculator commands."
+    };
+};
+
 
 
 
@@ -52,20 +154,47 @@ export const updateAssistant = async (req, res) => {
 export const askToAssistant = async (req, res) => {
     try {
         const { command } = req.body;
+        if (!command || typeof command !== "string") {
+            return res.status(400).json({ response: "Command is required" });
+        }
+
         const user = await User.findById(req.userId);
+        if (!user) {
+            return res.status(404).json({ response: "User not found" });
+        }
+
         user.history.push(command);
         await user.save();
         const userName = user.name;
         const assistantName = user.assistantName;
         const result = await geminiResponse(command, assistantName, userName);
-
-        const jsonMatch = result.match(/{[\s\S]*}/);
-
-        if(!jsonMatch) {
-            return res.status(400).json({ response: "Invalid response from assistant" });
+        if (!result) {
+            const fallback = fallbackAssistantResponse(command);
+            return res.json(fallback);
         }
 
-        const gemResult = JSON.parse(jsonMatch[0]);
+        const cleanedResult = result.replace(/```json|```/gi, "").trim();
+        const jsonMatch = cleanedResult.match(/{[\s\S]*}/);
+
+        let gemResult;
+        if (jsonMatch) {
+            try {
+                gemResult = JSON.parse(jsonMatch[0]);
+            } catch {
+                gemResult = {
+                    type: "general",
+                    userInput: command,
+                    response: "I could not process that response. Please try again."
+                };
+            }
+        } else {
+            gemResult = {
+                type: "general",
+                userInput: command,
+                response: cleanedResult || "I could not understand that. Please try again."
+            };
+        }
+
         const type = gemResult.type;
 
         switch(type) {
@@ -112,7 +241,11 @@ export const askToAssistant = async (req, res) => {
                                         });
 
                                         default:
-                                            return res.status(400).json({ response: "Unknown command" });
+                                            return res.json({
+                                                type: "general",
+                                                userInput: gemResult.userInput || command,
+                                                response: gemResult.response || "I could not process that command."
+                                            });
         }
 
     } catch (error) {

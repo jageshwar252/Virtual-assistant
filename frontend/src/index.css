@@ -1,1 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 @import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --bg-deep: #040714;
+  --bg-mid: #0b1737;
+  --accent: #22d3ee;
+  --accent-2: #60a5fa;
+  --text-main: #f8fbff;
+  --text-muted: #b2bdd8;
+  --surface: rgba(8, 17, 40, 0.58);
+  --surface-border: rgba(151, 180, 255, 0.22);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Manrope', sans-serif;
+  background:
+    radial-gradient(circle at 12% 14%, rgba(34, 211, 238, 0.16), transparent 34%),
+    radial-gradient(circle at 88% 8%, rgba(96, 165, 250, 0.2), transparent 28%),
+    linear-gradient(140deg, var(--bg-deep), var(--bg-mid));
+  color: var(--text-main);
+}
+
+h1,
+h2,
+h3,
+.heading-font {
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.page-shell {
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 80%, rgba(96, 165, 250, 0.16), transparent 40%),
+    radial-gradient(circle at 84% 18%, rgba(34, 211, 238, 0.18), transparent 30%),
+    linear-gradient(160deg, #030816, #0a1430 44%, #111f45);
+}
+
+.page-shell::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background: conic-gradient(
+    from 180deg at 50% 50%,
+    rgba(56, 189, 248, 0.08),
+    rgba(99, 102, 241, 0.05),
+    transparent 40%
+  );
+  filter: blur(45px);
+  pointer-events: none;
+}
+
+.glass-card {
+  border: 1px solid var(--surface-border);
+  background: linear-gradient(140deg, rgba(14, 24, 52, 0.88), rgba(7, 12, 28, 0.72));
+  box-shadow: 0 24px 80px rgba(2, 6, 23, 0.55);
+  backdrop-filter: blur(12px);
+}
+
+.heading-gradient {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.primary-btn,
+.secondary-btn {
+  border-radius: 999px;
+  padding: 0.8rem 1.35rem;
+  border: none;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  cursor: pointer;
+}
+
+.primary-btn {
+  color: #061128;
+  background: linear-gradient(120deg, #67e8f9, #60a5fa);
+  box-shadow: 0 10px 30px rgba(56, 189, 248, 0.34);
+}
+
+.secondary-btn {
+  color: var(--text-main);
+  background: rgba(8, 18, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.33);
+}
+
+.primary-btn:hover,
+.secondary-btn:hover {
+  transform: translateY(-1px);
+}
+
+.primary-btn:disabled,
+.secondary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.text-input {
+  width: 100%;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  background: rgba(10, 20, 45, 0.62);
+  color: var(--text-main);
+  padding: 0.9rem 1.05rem;
+  font-size: 0.98rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.text-input::placeholder {
+  color: #97a5c4;
+}
+
+.text-input:focus {
+  border-color: rgba(34, 211, 238, 0.95);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.16);
+}
+
+@media (max-width: 640px) {
+  .page-shell {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

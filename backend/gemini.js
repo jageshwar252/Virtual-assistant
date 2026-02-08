@@ -1,12 +1,18 @@
-import axios from 'axios';
+import { GoogleGenAI } from "@google/genai";
 
 const geminiResponse = async (command, assistantName, userName) => {
     try {
+        const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+        if (!apiKey) {
+            console.error("Gemini API key is missing");
+            return null;
+        }
 
-        const apiurl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+        const model = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+        const ai = new GoogleGenAI({ apiKey });
 
         const systemPrompt = `
-You are a virtual assistant named ${assistantName} created by ${userName}.
+You are a virtual assistant named ${assistantName || "Assistant"} created by ${userName || "the user"}.
 You are not Google. You will now behave like a voice-enabled assistant.
 Your task is to understand the user's natural language input and respond with a JSON object like this:
 {
@@ -41,27 +47,26 @@ Important:
 - Use "{author name}" if someone asks who created you.
 - Only respond with the JSON object, nothing else.
 
-Now your userInput - (${command})
+Now your userInput - (${command || ""})
 `;
 
+        const result = await ai.models.generateContent({
+            model,
+            contents: systemPrompt,
+        });
 
-
-        const result = await axios.post(apiurl, {
-            "contents": [{
-                "parts": [{
-                    "text": systemPrompt
-                }]
-            }]
-        }, {
-            headers: {
-                "Content-Type": "application/json",
-                "x-goog-api-key": process.env.GEMINI_API_KEY
-            }
-        })
-        return result.data.candidates[0].content.parts[0].text;
+        const text = result?.text;
+        return typeof text === "string" ? text.trim() : null;
         
     } catch (error) {
-        console.log(error)
+        console.error(
+            "Gemini API error:",
+            error?.status,
+            error?.message || error
+        );
+
+        // Always return null on failure so callers can handle it safely
+        return null;
     }
 }
 
