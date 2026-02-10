@@ -5,7 +5,12 @@ const geminiResponse = async (command, assistantName, userName) => {
         const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
         if (!apiKey) {
             console.error("Gemini API key is missing");
-            return null;
+            return {
+                ok: false,
+                errorType: "missing_api_key",
+                status: 500,
+                message: "Gemini API key is not configured on the server."
+            };
         }
 
         const model = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
@@ -56,17 +61,56 @@ Now your userInput - (${command || ""})
         });
 
         const text = result?.text;
-        return typeof text === "string" ? text.trim() : null;
+        if (typeof text !== "string" || !text.trim()) {
+            return {
+                ok: false,
+                errorType: "empty_response",
+                status: 502,
+                message: "Gemini returned an empty response."
+            };
+        }
+
+        return {
+            ok: true,
+            text: text.trim()
+        };
         
     } catch (error) {
+        const status = error?.status || error?.code || 500;
+        const rawMessage = error?.message || "Unknown Gemini API error";
+        const message = String(rawMessage);
+        const lower = message.toLowerCase();
+
+        let errorType = "unknown";
+        let userMessage = "Gemini is unavailable right now.";
+
+        if (status === 401 || status === 403) {
+            errorType = "auth_error";
+            userMessage = "Gemini authentication failed. Please check the API key.";
+        } else if (status === 429 || lower.includes("quota") || lower.includes("rate")) {
+            errorType = "quota_or_rate_limit";
+            userMessage = "Gemini quota or rate limit has been reached. Please try again later.";
+        } else if (status === 400 && (lower.includes("model") || lower.includes("not found"))) {
+            errorType = "invalid_model";
+            userMessage = "Configured Gemini model is invalid or unavailable for this API key.";
+        } else if (status >= 500) {
+            errorType = "provider_error";
+            userMessage = "Gemini service is temporarily unavailable.";
+        }
+
         console.error(
             "Gemini API error:",
             error?.status,
             error?.message || error
         );
 
-        // Always return null on failure so callers can handle it safely
-        return null;
+        return {
+            ok: false,
+            errorType,
+            status: Number(status) || 500,
+            message: userMessage,
+            debugMessage: message
+        };
     }
 }
 

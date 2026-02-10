@@ -4,7 +4,7 @@ import geminiResponse from "../gemini.js";
 import User from "../models/user.model.js";
 import moment from 'moment';
 
-const fallbackAssistantResponse = (command = "") => {
+const fallbackAssistantResponse = (command = "", geminiFailureMessage = "Gemini is unavailable right now.") => {
     const text = command.trim();
     const lower = text.toLowerCase();
 
@@ -95,14 +95,14 @@ const fallbackAssistantResponse = (command = "") => {
         return {
             type: "weather-show",
             userInput: text,
-            response: "Please check your weather app. Gemini quota is currently exhausted."
+            response: `${geminiFailureMessage} Please check your weather app for live weather updates.`
         };
     }
 
     return {
         type: "general",
         userInput: text,
-        response: "Gemini quota is exhausted right now. I can still help with time, date, day, month, Google, YouTube, Instagram, Facebook, and calculator commands."
+        response: `${geminiFailureMessage} I can still help with time, date, day, month, Google, YouTube, Instagram, Facebook, and calculator commands.`
     };
 };
 
@@ -167,13 +167,13 @@ export const askToAssistant = async (req, res) => {
         await user.save();
         const userName = user.name;
         const assistantName = user.assistantName;
-        const result = await geminiResponse(command, assistantName, userName);
-        if (!result) {
-            const fallback = fallbackAssistantResponse(command);
+        const geminiResult = await geminiResponse(command, assistantName, userName);
+        if (!geminiResult?.ok) {
+            const fallback = fallbackAssistantResponse(command, geminiResult?.message);
             return res.json(fallback);
         }
 
-        const cleanedResult = result.replace(/```json|```/gi, "").trim();
+        const cleanedResult = geminiResult.text.replace(/```json|```/gi, "").trim();
         const jsonMatch = cleanedResult.match(/{[\s\S]*}/);
 
         let gemResult;
