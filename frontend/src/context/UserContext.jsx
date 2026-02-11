@@ -4,7 +4,9 @@ export const UserDataContext = createContext();
 
 const UserContext = ({ children }) => {
 
-    const ServerUrl = "https://backend-ozrx.onrender.com";
+    const ServerUrl =
+      import.meta.env.VITE_SERVER_URL ||
+      (import.meta.env.DEV ? "http://localhost:8000" : "https://backend-ozrx.onrender.com");
     const [userData, setUserData] = useState(null);
      const [frontendImage, setFrontendImage] = useState(null);
         const [backendImage, setBackendImage] = useState(null);
@@ -35,7 +37,8 @@ const UserContext = ({ children }) => {
         return {
           type: "general",
           userInput: command,
-          response: error.response?.data?.response || "I could not process that right now. Please try again."
+          response: error.response?.data?.response || "I could not process that right now. Please try again.",
+          debug: error.response?.data?.debug || error.message
         };
       }
     }

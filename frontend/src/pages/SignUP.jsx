@@ -32,7 +32,7 @@ const SignUP = () => {
       console.log(error);
       setUserData(null);
       if (!error.response) {
-        setErr("Cannot reach backend at http://localhost:8000. Start backend server first.");
+        setErr(`Cannot reach backend at ${ServerUrl}. Check backend status and CORS settings.`);
       } else {
         setErr(error.response?.data?.message || "Unable to sign up right now. Please try again.");
       }

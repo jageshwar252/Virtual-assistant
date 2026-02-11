@@ -170,6 +170,9 @@ export const askToAssistant = async (req, res) => {
         const geminiResult = await geminiResponse(command, assistantName, userName);
         if (!geminiResult?.ok) {
             const fallback = fallbackAssistantResponse(command, geminiResult?.message);
+            if (process.env.NODE_ENV !== "production" && geminiResult?.debugMessage) {
+                fallback.debug = geminiResult.debugMessage;
+            }
             return res.json(fallback);
         }
 

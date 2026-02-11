@@ -1,5 +1,54 @@
 import { GoogleGenAI } from "@google/genai";
 
+const DEFAULT_MODEL = "gemini-3-flash-preview";
+const FALLBACK_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-3-pro-preview"
+];
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isModelResolutionError = (status, message = "") => {
+    const lower = String(message).toLowerCase();
+    return (
+        status === 400 ||
+        status === 404 ||
+        lower.includes("model") ||
+        lower.includes("not found")
+    );
+};
+
+const isRetryableError = (status, message = "") => {
+    const lower = String(message).toLowerCase();
+    return (
+        RETRYABLE_STATUS.has(Number(status)) ||
+        lower.includes("temporarily unavailable") ||
+        lower.includes("service unavailable") ||
+        lower.includes("try again") ||
+        lower.includes("overloaded")
+    );
+};
+
+const extractResponseText = (result) => {
+    if (typeof result?.text === "string" && result.text.trim()) {
+        return result.text.trim();
+    }
+
+    const parts = result?.candidates?.[0]?.content?.parts;
+    if (Array.isArray(parts)) {
+        const combined = parts
+            .map((part) => (typeof part?.text === "string" ? part.text : ""))
+            .join("")
+            .trim();
+        if (combined) {
+            return combined;
+        }
+    }
+
+    return "";
+};
+
 const geminiResponse = async (command, assistantName, userName) => {
     try {
         const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -13,11 +62,13 @@ const geminiResponse = async (command, assistantName, userName) => {
             };
         }
 
-        const model = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+        const configuredModel = process.env.GEMINI_MODEL?.trim();
+        const modelsToTry = configuredModel
+            ? [configuredModel]
+            : [DEFAULT_MODEL, ...FALLBACK_MODELS];
         const ai = new GoogleGenAI({ apiKey });
 
-        const systemPrompt = `
-You are a virtual assistant named ${assistantName || "Assistant"} created by ${userName || "the user"}.
+        const systemPrompt = `You are a virtual assistant named ${assistantName || "Assistant"} created by ${userName || "the user"}.
 You are not Google. You will now behave like a voice-enabled assistant.
 Your task is to understand the user's natural language input and respond with a JSON object like this:
 {
@@ -55,25 +106,67 @@ Important:
 Now your userInput - (${command || ""})
 `;
 
-        const result = await ai.models.generateContent({
-            model,
-            contents: systemPrompt,
-        });
+        let lastError = null;
+        for (const model of modelsToTry) {
+            try {
+                let result = null;
+                let modelError = null;
 
-        const text = result?.text;
-        if (typeof text !== "string" || !text.trim()) {
-            return {
-                ok: false,
-                errorType: "empty_response",
-                status: 502,
-                message: "Gemini returned an empty response."
-            };
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                    try {
+                        result = await ai.models.generateContent({
+                            model,
+                            contents: systemPrompt,
+                        });
+                        modelError = null;
+                        break;
+                    } catch (error) {
+                        modelError = error;
+                        const status = Number(error?.status || error?.code) || 500;
+                        const message = String(error?.message || "");
+                        if (attempt < 3 && isRetryableError(status, message)) {
+                            await sleep(300 * attempt);
+                            continue;
+                        }
+                        throw error;
+                    }
+                }
+
+                if (!result && modelError) {
+                    throw modelError;
+                }
+
+                const text = extractResponseText(result);
+                if (text) {
+                    return {
+                        ok: true,
+                        text
+                    };
+                }
+
+                return {
+                    ok: false,
+                    errorType: "empty_response",
+                    status: 502,
+                    message: "Gemini returned an empty response."
+                };
+            } catch (error) {
+                const status = Number(error?.status || error?.code) || 500;
+                const message = String(error?.message || "");
+                lastError = error;
+
+                const canTryAnotherModel =
+                    !configuredModel &&
+                    model !== modelsToTry[modelsToTry.length - 1] &&
+                    isModelResolutionError(status, message);
+
+                if (!canTryAnotherModel) {
+                    throw error;
+                }
+            }
         }
 
-        return {
-            ok: true,
-            text: text.trim()
-        };
+        throw lastError || new Error("No Gemini model could be used.");
         
     } catch (error) {
         const status = error?.status || error?.code || 500;
@@ -90,9 +183,16 @@ Now your userInput - (${command || ""})
         } else if (status === 429 || lower.includes("quota") || lower.includes("rate")) {
             errorType = "quota_or_rate_limit";
             userMessage = "Gemini quota or rate limit has been reached. Please try again later.";
-        } else if (status === 400 && (lower.includes("model") || lower.includes("not found"))) {
+        } else if (isModelResolutionError(status, lower)) {
             errorType = "invalid_model";
             userMessage = "Configured Gemini model is invalid or unavailable for this API key.";
+        } else if (
+            lower.includes("econnrefused") ||
+            lower.includes("enotfound") ||
+            lower.includes("network")
+        ) {
+            errorType = "network_error";
+            userMessage = "Gemini could not be reached due to a network issue.";
         } else if (status >= 500) {
             errorType = "provider_error";
             userMessage = "Gemini service is temporarily unavailable.";

@@ -15,9 +15,11 @@ const Home = () => {
   const [aiText, setAiText] = useState('');
   const [ham, setHam] = useState(false);
   const isSpeakingRef = useRef(false);
+  const isActivatedRef = useRef(false);
   const recognitionRef = useRef(null);
   const isRecognizingRef = useRef(false);
   const assistantVoiceRef = useRef(null);
+  const [isActivated, setIsActivated] = useState(false);
   const synth = window.speechSynthesis;
 
   const pickAssistantVoice = () => {
@@ -102,7 +104,10 @@ const Home = () => {
       return;
     }
 
-    const { type, userInput, response } = data;
+    const { type, userInput, response, debug } = data;
+    if (debug) {
+      console.warn('Assistant debug:', debug);
+    }
     if (response) {
       speak(response);
     }
@@ -153,18 +158,6 @@ const Home = () => {
 
     let isMounted = true;
 
-    const startTimeout = setTimeout(() => {
-      if (isMounted && !isSpeakingRef.current && !isRecognizingRef.current) {
-        try {
-          recognition.start();
-        } catch (error) {
-          if (error.name !== 'InvalidStateError') {
-            console.log(error);
-          }
-        }
-      }
-    }, 1000);
-
     recognition.onstart = () => {
       isRecognizingRef.current = true;
       setListening(true);
@@ -173,7 +166,7 @@ const Home = () => {
     recognition.onend = () => {
       isRecognizingRef.current = false;
       setListening(false);
-      if (isMounted && !isSpeakingRef.current) {
+      if (isMounted && isActivatedRef.current && !isSpeakingRef.current) {
         setTimeout(() => {
           if (isMounted) {
             try {
@@ -192,7 +185,7 @@ const Home = () => {
       console.log('Error occurred in recognition: ' + e.error);
       isRecognizingRef.current = false;
       setListening(false);
-      if (e.error !== 'not-aborted' && isMounted && !isSpeakingRef.current) {
+      if (e.error !== 'not-aborted' && isMounted && isActivatedRef.current && !isSpeakingRef.current) {
         setTimeout(() => {
           if (isMounted) {
             try {
@@ -224,22 +217,34 @@ const Home = () => {
       }
     };
 
-    const greeting = new SpeechSynthesisUtterance(
-      `Hello ${userData.name}. I am ${userData.assistantName}. How can I help you today?`
-    );
-    configureUtterance(greeting);
-    greeting.onend = () => {
-      isSpeakingRef.current = false;
-      setTimeout(() => {
-        startRecognition();
-      }, 800);
+    const activateAssistant = () => {
+      if (!isMounted || isActivatedRef.current) return;
+      isActivatedRef.current = true;
+      setIsActivated(true);
+      window.removeEventListener('pointerdown', activateAssistant);
+      window.removeEventListener('keydown', activateAssistant);
+
+      const greeting = new SpeechSynthesisUtterance(
+        `Hello ${userData.name}. I am ${userData.assistantName}. How can I help you today?`
+      );
+      configureUtterance(greeting);
+      greeting.onend = () => {
+        isSpeakingRef.current = false;
+        setTimeout(() => {
+          startRecognition();
+        }, 800);
+      };
+      isSpeakingRef.current = true;
+      synth.speak(greeting);
     };
-    isSpeakingRef.current = true;
-    synth.speak(greeting);
+
+    window.addEventListener('pointerdown', activateAssistant);
+    window.addEventListener('keydown', activateAssistant);
 
     return () => {
       isMounted = false;
-      clearTimeout(startTimeout);
+      window.removeEventListener('pointerdown', activateAssistant);
+      window.removeEventListener('keydown', activateAssistant);
       recognition.stop();
       setListening(false);
       isRecognizingRef.current = false;
@@ -330,7 +335,7 @@ const Home = () => {
             </div>
 
             <p className="mt-5 min-h-12 max-w-2xl text-sm text-slate-200 sm:text-lg">
-              {userText || aiText || 'Call your assistant name to start speaking.'}
+              {userText || aiText || (isActivated ? 'Call your assistant name to start speaking.' : 'Click or press any key once to activate the assistant.')}
             </p>
           </div>
         </section>
