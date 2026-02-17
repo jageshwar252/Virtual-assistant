@@ -4,9 +4,7 @@ export const UserDataContext = createContext();
 
 const UserContext = ({ children }) => {
 
-    const ServerUrl =
-      import.meta.env.VITE_SERVER_URL ||
-      (import.meta.env.DEV ? "http://localhost:8000" : "https://backend-ozrx.onrender.com");
+    const ServerUrl = https://virtual-assistant-9s8u.onrender.com
     const [userData, setUserData] = useState(null);
      const [frontendImage, setFrontendImage] = useState(null);
         const [backendImage, setBackendImage] = useState(null);
