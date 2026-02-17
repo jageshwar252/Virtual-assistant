@@ -6,7 +6,7 @@ const UserContext = ({ children }) => {
 
     const ServerUrl =
       import.meta.env.VITE_SERVER_URL ||
-      (import.meta.env.DEV ? "http://localhost:8000" : "https://virtual-assistant-9s8u.onrender.com");
+      (import.meta.env.DEV ? "https://virtual-assistant-9s8u.onrender.com" : "https://virtual-assistant-9s8u.onrender.com");
     const [userData, setUserData] = useState(null);
      const [frontendImage, setFrontendImage] = useState(null);
         const [backendImage, setBackendImage] = useState(null);
