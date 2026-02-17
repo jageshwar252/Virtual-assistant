@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://backend-phi-navy-95.vercel.app/api/$1"
+    }
+  ]
+}
