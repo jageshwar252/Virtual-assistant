@@ -12,8 +12,13 @@ const port = process.env.PORT || 5000;
 
 const app = express();
 
+const staticAllowedOrigins = [
+    "https://virtual-assistant-1-frontend.onrender.com"
+];
+
 const allowedOrigins = [
     ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map((url) => url.trim()).filter(Boolean) : []),
+    ...staticAllowedOrigins,
     /^http:\/\/localhost:\d+$/,
     /^http:\/\/127\.0\.0\.1:\d+$/
 ];
